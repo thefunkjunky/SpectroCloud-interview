@@ -1,0 +1,33 @@
+---
+- name: Generate test logs
+  hosts: all
+  remote_user: vagrant
+  # become: true
+  tasks:
+    - name: Install pip
+      become: yes
+      ansible.builtin.apt:
+        update_cache: yes
+        name: python-pip
+        state: present
+    - name: Install virtualenv
+      become: yes
+      ansible.builtin.apt:
+        name: virtualenv
+        state: present
+    - name: Install nginx
+      become: yes
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+    - name: Copy app scripts
+      become: yes
+      ansible.builtin.copy:
+        src: ../app/
+        dest: /opt/app/
+    - name: Install python requirements
+      become: yes
+      ansible.builtin.pip:
+        requirements: /opt/app/requirements.txt
+        virtualenv: /opt/app/venv
+        virtualenv_python: python3.6
