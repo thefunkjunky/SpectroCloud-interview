@@ -2,32 +2,84 @@
 - name: Generate test logs
   hosts: all
   remote_user: vagrant
-  # become: true
+  become: true # all tasks require sudo
+  vars:
+    num_workers: 5
+
   tasks:
     - name: Install pip
-      become: yes
       ansible.builtin.apt:
-        update_cache: yes
+        update_cache: yes # apt will 404 until cache is updated
         name: python-pip
         state: present
     - name: Install virtualenv
-      become: yes
       ansible.builtin.apt:
         name: virtualenv
         state: present
     - name: Install nginx
-      become: yes
       ansible.builtin.apt:
         name: nginx
         state: present
+
+    - name: Create application directory
+      register: app_change
+      ansible.builtin.file:
+        path: /var/www/application
+        state: directory
+        owner: www-data
+        group: www-data
     - name: Copy app scripts
-      become: yes
+      register: app_change
       ansible.builtin.copy:
         src: ../app/
-        dest: /opt/app/
+        dest: /var/www/application/
+        owner: www-data
+        group: www-data
     - name: Install python requirements
-      become: yes
+      register: app_change
       ansible.builtin.pip:
-        requirements: /opt/app/requirements.txt
-        virtualenv: /opt/app/venv
+        requirements: /var/www/application/requirements.txt
+        virtualenv: /var/www/application/venv
         virtualenv_python: python3.6
+    - name: Recursively change ownership virtualenv directory
+      ansible.builtin.file:
+        path: /var/www/application/venv
+        state: directory
+        recurse: yes
+        owner: www-data
+        group: www-data
+
+
+    - name: Copy application.conf
+      register: nginx_change
+      ansible.builtin.copy:
+        src: files/application.conf
+        dest: /etc/nginx/sites-available/application.conf
+    - name: Create a symbolic link
+      register: nginx_change
+      ansible.builtin.file:
+        src: /etc/nginx/sites-available/application.conf
+        dest: /etc/nginx/sites-enabled/application.conf
+        state: link
+    - name: Delete nginx default
+      register: nginx_change
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+    - name: Create application service
+      register: app_change
+      ansible.builtin.template:
+        src: files/application.service.j2
+        dest: /etc/systemd/system/application.service
+    - name: restart service nginx
+      when: nginx_change.changed
+      ansible.builtin.service:
+        name: nginx
+        state: restarted
+    - name: Restart application service
+      when: app_change.changed
+      ansible.builtin.systemd:
+        name: application.service
+        state: restarted
+        daemon_reload: yes
+
