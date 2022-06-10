@@ -71,11 +71,6 @@ Vagrant.configure("2") do |config|
   # (1..1).each do |i|
     # Defining VM properties
   config.vm.define "server.quiz.spectrocloud"
-  # config.vm.provision "file",
-  #   source: "../app",
-  #   destination: "/tmp/app"
-  # config.vm.provision "shell",
-  #   inline: "cp -rf /tmp/app /opt/"
   config.vm.provision "ansible" do |ansible|
     ansible.playbook = "playbook.yaml"
     ansible.compatibility_mode = "2.0"
